@@ -541,14 +541,13 @@ public:
 // the Sync function.  The stream provided to sync for this object is not the same stream that is working with
 // a nif file.  
 class BSGeometryMeshData : public NiCloneableStreamable<BSGeometryMeshData, NiGeometryData> {
-private:
+public:
 	// Traditional scale based on havok to unit transform used in skyrim, fallout, etc. In Starfield mesh files are normalized to metric units,
 	// this scale makes default vertex positions closely match the older games
-	const float havokScale = 69.969f;
+	static constexpr float havokScale = 69.969f;
 	// experimentally, the below scale produced very accurate values to SSE mesh sizes (comparing markerxheading.nif)
-	// const float havokScale = 69.9866f;
+	// static constexpr float havokScale = 69.9866f;
 
-public:
 	struct BoneWeight {
 		uint16_t boneIndex = 0;
 		uint16_t weight = 0;
