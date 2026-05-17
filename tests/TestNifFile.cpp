@@ -474,6 +474,54 @@ TEST_CASE("Load external and save as internal mesh data (SF)", "[NifFile]") {
 	REQUIRE(CompareBinaryFiles(fileOutput, fileExpected));
 }
 
+TEST_CASE("BSGeometry skin-to-bone transform is havok-scaled (SF)", "[NifFile]") {
+	constexpr auto fileName = "TestNifFile_SF";
+	const auto [fileInput, fileOutput, fileExpected] = GetFileTuple(fileName, nifSuffix);
+
+	NifFile nif;
+	REQUIRE(nif.Load(fileInput) == 0);
+
+	auto shapes = nif.GetShapes();
+	REQUIRE(!shapes.empty());
+
+	float maxTranslationMag = 0.0f;
+	size_t checkedBones = 0;
+
+	for (auto& s : shapes) {
+		auto* bsGeom = dynamic_cast<BSGeometry*>(s);
+		REQUIRE(bsGeom != nullptr);
+
+		std::vector<std::string> bones;
+		nif.GetShapeBoneList(s, bones);
+
+		for (uint32_t boneIndex = 0; boneIndex < bones.size(); boneIndex++) {
+			MatTransform t1;
+			if (!nif.GetShapeTransformSkinToBone(s, boneIndex, t1))
+				continue;
+			checkedBones++;
+
+			// Writing the scaled transform back and reading it again must be
+			// stable: the read scale and write unscale are exact inverses.
+			nif.SetShapeTransformSkinToBone(s, boneIndex, t1);
+			MatTransform t2;
+			REQUIRE(nif.GetShapeTransformSkinToBone(s, boneIndex, t2));
+
+			REQUIRE(t2.translation.x == Approx(t1.translation.x).margin(1e-2));
+			REQUIRE(t2.translation.y == Approx(t1.translation.y).margin(1e-2));
+			REQUIRE(t2.translation.z == Approx(t1.translation.z).margin(1e-2));
+
+			const float mag = t1.translation.length();
+			if (mag > maxTranslationMag)
+				maxTranslationMag = mag;
+		}
+	}
+
+	REQUIRE(checkedBones > 0);
+	// Metric (unscaled) bone translations would be sub-unit / single digits;
+	// after havok scaling at least one bone offset must be well above that.
+	REQUIRE(maxTranslationMag > 10.0f);
+}
+
 TEST_CASE("FixBSXFlags (remove external emittance)", "[NifFile]") {
 	constexpr auto fileName = "TestNifFile_FixBSXFlags_RemoveExtEmit";
 	const auto [fileInput, fileOutput, fileExpected] = GetFileTuple(fileName, nifSuffix);

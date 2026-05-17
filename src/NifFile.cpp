@@ -2688,6 +2688,11 @@ bool NifFile::GetShapeTransformSkinToBone(NiShape* shape,
 				return false;
 
 			outTransform = boneData->boneXforms[boneIndex].boneTransform;
+			// Starfield mesh vertices are havok-scaled on unpack while the
+			// bone transform is stored in metric units; scale its translation
+			// to keep it consistent with the geometry.
+			if (hdr.GetVersion().IsSF())
+				outTransform.translation *= BSGeometryMeshData::havokScale;
 			return true;
 		}
 	}
@@ -2722,7 +2727,12 @@ void NifFile::SetShapeTransformSkinToBone(NiShape* shape,
 
 		if (boneIndex >= bsSkin->nBones)
 			return;
-		bsSkin->boneXforms[boneIndex].boneTransform = inTransform;
+		MatTransform xform = inTransform;
+		// Undo the havok scaling applied on read so a load/save round-trip is
+		// byte-stable (Starfield bone transforms are stored in metric units).
+		if (hdr.GetVersion().IsSF())
+			xform.translation /= BSGeometryMeshData::havokScale;
+		bsSkin->boneXforms[boneIndex].boneTransform = xform;
 		return;
 	}
 
